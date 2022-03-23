@@ -17,6 +17,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	// veiws := ModinfoFirebase("test", "test")
 	veiws := GetSearch(r)
+	w.Header().Set("content-type", "application/json;charset=UTF-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	fmt.Fprintf(w, veiws)
 }
 
