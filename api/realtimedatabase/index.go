@@ -16,8 +16,8 @@ import (
 func Handler(w http.ResponseWriter, r *http.Request) {
 
 	// veiws := ModinfoFirebase("test", "test")
-	veiws := GetSearch(r)
-	fmt.Fprintf(w, veiws)
+	// veiws := GetSearch(r)
+	fmt.Fprintf(w, "veiws")
 }
 
 /*获取URL参数并写入Firebase Realtime数据库,返回JSON字符串*/
