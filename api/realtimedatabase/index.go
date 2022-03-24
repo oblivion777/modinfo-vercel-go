@@ -26,7 +26,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 /*获取URL参数并写入Firebase Realtime数据库,返回JSON字符串*/
 func GetSearch(request *http.Request) string {
-	defer func() {
+	defer func() { //异常处理
 		if err := recover(); err != nil {
 			log.Println("ERROR:", "参数不存在!")
 		}
