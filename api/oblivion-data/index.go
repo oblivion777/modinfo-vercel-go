@@ -71,8 +71,10 @@ func PostToMongoDB(page string, ip string) string {
 	reJsonPV, err := IncreasePV(nil, collpv, page)
 	reJsonUV, err := IncreaseUV(nil, colluv, ip)
 
-	result := fmt.Sprintf(`{"pv":%v,"uv":%v}`, reJsonPV, reJsonUV)
+	result := fmt.Sprintf(`{%v,%v}`, reJsonPV, reJsonUV)
 	fmt.Println(result)
+
+	result = fmt.Sprintf(`{%v}`, reJsonPV)
 	return result
 }
 
@@ -132,7 +134,7 @@ func IncreasePV(sessCtx mongo.SessionContext, coll *mongo.Collection, page strin
 	//所有页面浏览量自增1
 	totalViews := totalPV["views"].(int32) + 1
 	coll.UpdateOne(ctx, bson.M{"page": "total_page_views"}, bson.M{"$inc": bson.M{"views": 1}})
-	return fmt.Sprintf(`{"pv":%d,"totalpv":%d}`, views, totalViews), err
+	return fmt.Sprintf(`"pv":%d,"totalpv":%d`, views, totalViews), err
 }
 
 func IncreaseUV(sessCtx mongo.SessionContext, coll *mongo.Collection, ip string) (interface{}, error) {
@@ -159,7 +161,7 @@ func IncreaseUV(sessCtx mongo.SessionContext, coll *mongo.Collection, ip string)
 		fmt.Println("ip集合修改了:", returnMessage.ModifiedCount, "个文档")
 	}
 
-	return fmt.Sprintf(`{"uv":%d}`, uv), err
+	return fmt.Sprintf(`"uv":%d`, uv), err
 }
 
 func GetURI(user string) string {
