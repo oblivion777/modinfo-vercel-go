@@ -113,25 +113,25 @@ func IncreasePV(sessCtx mongo.SessionContext, coll *mongo.Collection, page strin
 	var err error
 	var result bson.M  //页面浏览量
 	var totalPV bson.M //所有页面浏览量
-	coll.FindOne(ctx, bson.D{{"page", page}}).Decode(&result)
-	coll.FindOne(ctx, bson.D{{"page", "total_page_views"}}).Decode(&totalPV)
+	coll.FindOne(ctx, bson.M{"page": page}).Decode(&result)
+	coll.FindOne(ctx, bson.M{"page": "total_page_views"}).Decode(&totalPV)
 
 	var views int32 //页面浏览量
 	if result["views"] == nil {
 		//文档不存在时,添加文档
-		coll.InsertOne(ctx, bson.D{{"page", page}, {"views", 0}})
-		coll.UpdateOne(ctx, bson.D{{"page", page}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
+		coll.InsertOne(ctx, bson.M{"page": page, "views": 0})
+		coll.UpdateOne(ctx, bson.M{"page": page}, bson.M{"$inc": bson.M{"views": 1}})
 		views = 1
 	} else {
 		//浏览量自增1
 		views = result["views"].(int32) + 1 //interface转int32
 		var returnMessage *mongo.UpdateResult
-		returnMessage, err = coll.UpdateOne(ctx, bson.D{{"page", page}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
+		returnMessage, err = coll.UpdateOne(ctx, bson.M{"page": page}, bson.M{"$inc": bson.M{"views": 1}})
 		fmt.Println("pv集合修改了:", returnMessage.ModifiedCount, "个文档")
 	}
 	//所有页面浏览量自增1
 	totalViews := totalPV["views"].(int32) + 1
-	coll.UpdateOne(ctx, bson.D{{"page", "total_page_views"}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
+	coll.UpdateOne(ctx, bson.M{"page": "total_page_views"}, bson.M{"$inc": bson.M{"views": 1}})
 	return fmt.Sprintf(`{"pv":%d,"totalpv":%d}`, views, totalViews), err
 }
 
@@ -141,21 +141,21 @@ func IncreaseUV(sessCtx mongo.SessionContext, coll *mongo.Collection, ip string)
 	var err error
 	var result bson.M         //查询结果
 	var uniqueVisitors bson.M //UV
-	coll.FindOne(ctx, bson.D{{"ip", ip}}).Decode(&result)
-	coll.FindOne(ctx, bson.D{{"ip", "unique_visitors"}}).Decode(&uniqueVisitors)
+	coll.FindOne(ctx, bson.M{"ip": ip}).Decode(&result)
+	coll.FindOne(ctx, bson.M{"ip": "unique_visitors"}).Decode(&uniqueVisitors)
 
 	uv := uniqueVisitors["views"].(int32)
 	if result["views"] == nil {
-		coll.InsertOne(ctx, bson.D{{"ip", ip}, {"views", 0}})
-		coll.UpdateOne(ctx, bson.D{{"ip", ip}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
-		//总浏览量自增1
-		coll.UpdateOne(ctx, bson.D{{"ip", "unique_visitors"}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
+		coll.InsertOne(ctx, bson.M{"ip": ip, "views": 0})
+		coll.UpdateOne(ctx, bson.M{"ip": ip}, bson.M{"$inc": bson.M{"views": 1}})
+		//访客数自增1
+		coll.UpdateOne(ctx, bson.M{"ip": "unique_visitors"}, bson.M{"$inc": bson.M{"views": 1}})
 		uv++
 	} else {
 		//ip浏览量自增1
 		// views := result["views"].(int32) + 1 //interface转int32
 		var returnMessage *mongo.UpdateResult
-		returnMessage, err = coll.UpdateOne(ctx, bson.D{{"ip", ip}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
+		returnMessage, err = coll.UpdateOne(ctx, bson.M{"ip": ip}, bson.M{"$inc": bson.M{"views": 1}})
 		fmt.Println("ip集合修改了:", returnMessage.ModifiedCount, "个文档")
 	}
 
