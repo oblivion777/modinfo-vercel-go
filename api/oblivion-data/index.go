@@ -2,7 +2,6 @@ package index
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -48,10 +47,11 @@ func GetSearch(request *http.Request) string {
 	ip := search["ip"][0]
 	path := search["path"][0]
 
-	return TestTransaction(path, ip)
+	// return TestTransaction(path, ip)
+	return PostToMongoDB(path, ip)
 }
 
-func PostToMongoDB() {
+func PostToMongoDB(page string, ip string) string {
 	//建立连接
 	uri := GetURI("modinfoapi")
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
@@ -67,15 +67,13 @@ func PostToMongoDB() {
 
 	collpv := client.Database("modinfo").Collection("pv")
 	colluv := client.Database("modinfo").Collection("ip")
-	page := "test"
-	var result bson.M
 
-	IncreasePV(nil, collpv, "test")
-	IncreaseUV(nil, colluv, "119.29.29.29")
-	err = collpv.FindOne(context.TODO(), bson.D{{"page", page}}).Decode(&result)
-	jsonData, err := json.MarshalIndent(result, "", "    ")
-	fmt.Printf("%s\n", jsonData)
+	reJsonPV, err := IncreasePV(nil, collpv, page)
+	reJsonUV, err := IncreaseUV(nil, colluv, ip)
 
+	result := fmt.Sprintf(`{"pv":%v,"uv":%v}`, reJsonPV, reJsonUV)
+	fmt.Println(result)
+	return result
 }
 
 /*事务*/
@@ -107,55 +105,57 @@ func TestTransaction(page string, ip string) string {
 	return result.(string)
 }
 
-/*Step 1定义事务函数*/
 func IncreasePV(sessCtx mongo.SessionContext, coll *mongo.Collection, page string) (interface{}, error) {
 	/*浏览量自增*/
 	// Important: You must pass sessCtx as the Context parameter to the operations for them to be executed in the
 	// transaction.
+	ctx := context.TODO()
 	var err error
 	var result bson.M  //页面浏览量
 	var totalPV bson.M //所有页面浏览量
-	coll.FindOne(sessCtx, bson.D{{"page", page}}).Decode(&result)
-	coll.FindOne(sessCtx, bson.D{{"page", "total_page_views"}}).Decode(&totalPV)
+	coll.FindOne(ctx, bson.D{{"page", page}}).Decode(&result)
+	coll.FindOne(ctx, bson.D{{"page", "total_page_views"}}).Decode(&totalPV)
 
 	var views int32 //页面浏览量
 	if result["views"] == nil {
 		//文档不存在时,添加文档
-		coll.InsertOne(sessCtx, bson.D{{"page", page}, {"views", 1}})
+		coll.InsertOne(ctx, bson.D{{"page", page}, {"views", 0}})
+		coll.UpdateOne(ctx, bson.D{{"page", page}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
 		views = 1
 	} else {
 		//浏览量自增1
 		views = result["views"].(int32) + 1 //interface转int32
 		var returnMessage *mongo.UpdateResult
-		returnMessage, err = coll.UpdateOne(sessCtx, bson.D{{"page", page}}, bson.D{{"$set", bson.D{{"views", views}}}})
+		returnMessage, err = coll.UpdateOne(ctx, bson.D{{"page", page}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
 		fmt.Println("pv集合修改了:", returnMessage.ModifiedCount, "个文档")
 	}
 	//所有页面浏览量自增1
 	totalViews := totalPV["views"].(int32) + 1
-	coll.UpdateOne(sessCtx, bson.D{{"page", "total_page_views"}}, bson.D{{"$set", bson.D{{"views", totalViews}}}})
+	coll.UpdateOne(ctx, bson.D{{"page", "total_page_views"}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
 	return fmt.Sprintf(`{"pv":%d,"totalpv":%d}`, views, totalViews), err
 }
 
 func IncreaseUV(sessCtx mongo.SessionContext, coll *mongo.Collection, ip string) (interface{}, error) {
 	/*访客数自增*/
+	ctx := context.TODO()
 	var err error
 	var result bson.M         //查询结果
 	var uniqueVisitors bson.M //UV
-	coll.FindOne(sessCtx, bson.D{{"ip", ip}}).Decode(&result)
-	coll.FindOne(sessCtx, bson.D{{"ip", "unique_visitors"}}).Decode(&uniqueVisitors)
+	coll.FindOne(ctx, bson.D{{"ip", ip}}).Decode(&result)
+	coll.FindOne(ctx, bson.D{{"ip", "unique_visitors"}}).Decode(&uniqueVisitors)
 
 	uv := uniqueVisitors["views"].(int32)
 	if result["views"] == nil {
-		coll.InsertOne(sessCtx, bson.D{{"ip", ip}, {"views", 1}})
+		coll.InsertOne(ctx, bson.D{{"ip", ip}, {"views", 0}})
+		coll.UpdateOne(ctx, bson.D{{"ip", ip}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
 		//总浏览量自增1
-		views := uv + 1
-		uv = views
-		coll.UpdateOne(sessCtx, bson.D{{"ip", "unique_visitors"}}, bson.D{{"$set", bson.D{{"views", views}}}})
+		coll.UpdateOne(ctx, bson.D{{"ip", "unique_visitors"}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
+		uv++
 	} else {
 		//ip浏览量自增1
-		views := result["views"].(int32) + 1 //interface转int32
+		// views := result["views"].(int32) + 1 //interface转int32
 		var returnMessage *mongo.UpdateResult
-		returnMessage, err = coll.UpdateOne(sessCtx, bson.D{{"ip", ip}}, bson.D{{"$set", bson.D{{"views", views}}}})
+		returnMessage, err = coll.UpdateOne(ctx, bson.D{{"ip", ip}}, bson.D{{"$inc", bson.D{{"views", 1}}}})
 		fmt.Println("ip集合修改了:", returnMessage.ModifiedCount, "个文档")
 	}
 
