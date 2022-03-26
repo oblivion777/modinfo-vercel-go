@@ -2,6 +2,10 @@ package index
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -39,13 +43,13 @@ func GetSearch(request *http.Request) string {
 	}()
 
 	search := request.URL.Query()
-	apikey := search["a"][0]
-	if apikey != "db1d9099a36841a746f30b44f9b8a8f21a9b9fd4" {
-		fmt.Println("ERROR:", "搞事情!?")
-		return "ERROR"
-	}
-	ip := search["ip"][0]
-	path := search["path"][0]
+	ciphertext, _ := hex.DecodeString(search["c"][0])
+	iv, _ := hex.DecodeString(search["v"][0])
+
+	ip, path := GetVisitsData(ciphertext, iv)
+
+	// ip := search["ip"][0]
+	// path := search["path"][0]
 
 	// return TestTransaction(path, ip)
 	return PostToMongoDB(path, ip)
@@ -178,4 +182,51 @@ func GetURI(user string) string {
 	reURI := fmt.Sprintf(`mongodb+srv://%s:%s@reminiscence.lhull.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`, user, key)
 
 	return reURI
+}
+
+/*
+	AES加密URL参数
+*/
+//解密函数
+func CBCDecrypter(encrypter []byte, key []byte, iv []byte) []byte {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		fmt.Println(err)
+	}
+	iv = IVPadding(iv)
+	blockMode := cipher.NewCBCDecrypter(block, iv[:block.BlockSize()])
+	result := make([]byte, len(encrypter))
+	blockMode.CryptBlocks(result, encrypter)
+	// 去除填充
+	result = UnPKCS7Padding(result)
+	return result
+}
+
+func UnPKCS7Padding(text []byte) []byte {
+	// 取出填充的数据 以此来获得填充数据长度
+	unPadding := int(text[len(text)-1])
+	return text[:(len(text) - unPadding)]
+}
+
+//iv填充0
+func IVPadding(sourceIV []byte) []byte {
+	iv := [64]byte{}
+	for i := 0; i < len(sourceIV); i++ {
+		iv[i] = sourceIV[i]
+	}
+	return iv[:]
+}
+
+//return ip,path
+func GetVisitsData(ciphertext []byte, iv []byte) (string, string) {
+	type VisitsData struct {
+		// A    string `json:"a"`
+		Ip   string `json:"ip"`
+		Path string `json:"path"`
+	}
+	AES_KEY, _ := hex.DecodeString(os.Getenv("AES_KEY"))
+	visitsData := CBCDecrypter(ciphertext, AES_KEY, iv)
+	var data VisitsData
+	json.Unmarshal(visitsData, &data)
+	return data.Ip, data.Path
 }
