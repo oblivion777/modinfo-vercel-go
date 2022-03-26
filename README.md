@@ -1,2 +1,2 @@
-# modinfo-vercel-go
-Vercel 无服务器函数
+# modinfo-go
+CloudFlare 无服务器函数测试
