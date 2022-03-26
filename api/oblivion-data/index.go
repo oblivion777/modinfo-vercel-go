@@ -225,8 +225,8 @@ func GetVisitsData(ciphertext []byte, iv []byte) (string, string) {
 		Path string `json:"path"`
 	}
 	AES_KEY, _ := hex.DecodeString(os.Getenv("AES_KEY"))
-	visitsData := CBCDecrypter(ciphertext, AES_KEY, iv)
-	var data VisitsData
-	json.Unmarshal(visitsData, &data)
-	return data.Ip, data.Path
+	data := CBCDecrypter(ciphertext, AES_KEY, iv)
+	var visitsData VisitsData
+	json.Unmarshal(data, &visitsData)
+	return visitsData.Ip, visitsData.Path
 }
