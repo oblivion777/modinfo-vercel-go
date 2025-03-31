@@ -34,11 +34,11 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 /*获取URL参数并写入MongoDB数据库,返回JSON字符串*/
 func GetSearch(request *http.Request) string {
-	defer func() { //异常处理
-		if err := recover(); err != nil {
-			fmt.Println("ERROR:", "参数不存在!")
-		}
-	}()
+	// defer func() { //异常处理
+	// 	if err := recover(); err != nil {
+	// 		fmt.Println("ERROR:", "参数不存在!")
+	// 	}
+	// }()
 
 	search := request.URL.Query()
 	ciphertext, _ := hex.DecodeString(search["c"][0])
