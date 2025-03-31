@@ -9,17 +9,19 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 )
 
 /*
-	func main() {
-		fmt.Println("hello world!!!!!")
-		TestTransaction("test233", "192.168.7.7")
-	}
+func main() {
+	fmt.Println("hello world!!!!!")
+	TestTransaction("test233", "192.168.7.7")
+}
 */
 func Handler(w http.ResponseWriter, r *http.Request) {
 
@@ -67,8 +69,8 @@ func PostToMongoDB(page string, ip string) string {
 		}
 	}()
 
-	collpv := client.Database("commlist").Collection("pv")
-	colluv := client.Database("commlist").Collection("ip")
+	collpv := client.Database("modinfo").Collection("pv")
+	colluv := client.Database("modinfo").Collection("ip")
 
 	reJsonPV, err := IncreasePV(nil, collpv, page)
 	reJsonUV, err := IncreaseUV(nil, colluv, ip)
@@ -81,33 +83,33 @@ func PostToMongoDB(page string, ip string) string {
 }
 
 /*事务*/
-// func TestTransaction(page string, ip string) string {
-// 	ctx := context.Background()
-// 	uri := GetURI("modinfoapi")
-// 	clientOpts := options.Client().ApplyURI(uri)
-// 	client, err := mongo.Connect(ctx, clientOpts)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	defer func() { _ = client.Disconnect(ctx) }()
-// 	wcMajority := writeconcern.New(writeconcern.WMajority(), writeconcern.WTimeout(2*time.Second))
-// 	wcMajorityCollectionOpts := options.Collection().SetWriteConcern(wcMajority)
-// 	collpv := client.Database("modinfo").Collection("pv", wcMajorityCollectionOpts)
-// 	colluv := client.Database("modinfo").Collection("ip", wcMajorityCollectionOpts)
+func TestTransaction(page string, ip string) string {
+	ctx := context.Background()
+	uri := GetURI("modinfoapi")
+	clientOpts := options.Client().ApplyURI(uri)
+	client, err := mongo.Connect(ctx, clientOpts)
+	if err != nil {
+		panic(err)
+	}
+	defer func() { _ = client.Disconnect(ctx) }()
+	wcMajority := writeconcern.New(writeconcern.WMajority(), writeconcern.WTimeout(2*time.Second))
+	wcMajorityCollectionOpts := options.Collection().SetWriteConcern(wcMajority)
+	collpv := client.Database("modinfo").Collection("pv", wcMajorityCollectionOpts)
+	colluv := client.Database("modinfo").Collection("ip", wcMajorityCollectionOpts)
 
-// 	// Step 2: Start a session and run the callback using WithTransaction.
-// 	session, err := client.StartSession()
-// 	defer session.EndSession(ctx)
-// 	//开始事务
-// 	result, err := session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
-// 		// var err error
-// 		reJsonPV, err := IncreasePV(sessCtx, collpv, page)
-// 		reJsonUV, err := IncreaseUV(sessCtx, colluv, ip)
-// 		return fmt.Sprintf(`{"pv":%v,"uv":%v}`, reJsonPV, reJsonUV), err
-// 	})
-// 	fmt.Printf("result: %v\n", result)
-// 	return result.(string)
-// }
+	// Step 2: Start a session and run the callback using WithTransaction.
+	session, err := client.StartSession()
+	defer session.EndSession(ctx)
+	//开始事务
+	result, err := session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+		// var err error
+		reJsonPV, err := IncreasePV(sessCtx, collpv, page)
+		reJsonUV, err := IncreaseUV(sessCtx, colluv, ip)
+		return fmt.Sprintf(`{"pv":%v,"uv":%v}`, reJsonPV, reJsonUV), err
+	})
+	fmt.Printf("result: %v\n", result)
+	return result.(string)
+}
 
 func IncreasePV(sessCtx mongo.SessionContext, coll *mongo.Collection, page string) (interface{}, error) {
 	/*浏览量自增*/
@@ -206,7 +208,7 @@ func UnPKCS7Padding(text []byte) []byte {
 	return text[:(len(text) - unPadding)]
 }
 
-// iv填充0
+//iv填充0
 func IVPadding(sourceIV []byte) []byte {
 	iv := [64]byte{}
 	for i := 0; i < len(sourceIV); i++ {
@@ -215,7 +217,7 @@ func IVPadding(sourceIV []byte) []byte {
 	return iv[:]
 }
 
-// return ip,path
+//return ip,path
 func GetVisitsData(ciphertext []byte, iv []byte) (string, string) {
 	type VisitsData struct {
 		// A    string `json:"a"`
